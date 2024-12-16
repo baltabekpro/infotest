@@ -97,6 +97,11 @@
     </div>
 
     <script>
+        // Функция для безопасного преобразования HTML
+        function escapeHtml(str) {
+            return str.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
         // JSON с вопросами и ответами
         const questions = [
     {
@@ -7218,6 +7223,7 @@
         let score = 0;
         let answeredQuestions = 0;
         let shuffledQuestions = [];
+        let userAnswers = [];  // Массив для сохранения ответов пользователя
 
         // Перемешивание массива
         function shuffle(array) {
@@ -7227,6 +7233,7 @@
         // Начальная функция
         function startQuiz() {
             shuffledQuestions = shuffle([...questions]);
+            userAnswers = Array(shuffledQuestions.length).fill(null);  // Инициализация массива для ответов
             displayQuestion();
         }
 
@@ -7240,11 +7247,21 @@
                 <div class="question-card">
                     <h4>${currentQuestionIndex + 1}. ${questionData.question}</h4>
                     <ul class="list-group mt-3">
-                        ${questionData.options.map((option, idx) => `
-                            <li class="list-group-item list-group-item-action" 
-                                onclick="selectAnswer(${option.correct}, this, ${idx})">
-                                <strong>${letters[idx]}.</strong> ${option.text}
-                            </li>`).join('')}
+                        ${questionData.options.map((option, idx) => {
+                            let optionClass = '';
+                            if (userAnswers[currentQuestionIndex] !== null) {
+                                if (option.correct && userAnswers[currentQuestionIndex] === idx) {
+                                    optionClass = 'correct-answer';
+                                } else if (!option.correct && userAnswers[currentQuestionIndex] === idx) {
+                                    optionClass = 'incorrect-answer';
+                                }
+                            }
+                            return `
+                                <li class="list-group-item list-group-item-action ${optionClass}" 
+                                    onclick="selectAnswer(${option.correct}, this, ${idx})">
+                                    <strong>${letters[idx]}.</strong> ${escapeHtml(option.text)}
+                                </li>`;
+                        }).join('')}
                     </ul>
                 </div>`;
             
@@ -7260,6 +7277,9 @@
             // Блокировка вариантов после выбора
             options.forEach(option => option.classList.add('disabled'));
 
+            // Сохраняем ответ пользователя
+            userAnswers[currentQuestionIndex] = index;
+
             // Показываем правильный ответ
             const correctAnswer = shuffledQuestions[currentQuestionIndex].options.find(option => option.correct);
             const correctElement = options[shuffledQuestions[currentQuestionIndex].options.indexOf(correctAnswer)];
@@ -7269,44 +7289,51 @@
                 score++;
             } else {
                 element.classList.add('incorrect-answer');
-                correctElement.classList.add('correct-answer'); // Отображаем правильный ответ
+                correctElement.classList.add('correct-answer');
             }
 
-            answeredQuestions++;
+            // Ожидание 1.5 секунд перед переходом
+            setTimeout(() => {
+                answeredQuestions++;
+                if (answeredQuestions === shuffledQuestions.length) {
+                    finishTest();
+                } else {
+                    currentQuestionIndex++;
+                    displayQuestion();
+                }
+            }, 1500);
         }
 
-        // Показать следующий вопрос
-        function showNextQuestion() {
-            currentQuestionIndex++;
-            if (currentQuestionIndex < shuffledQuestions.length) {
-                displayQuestion();
-            } else {
-                finishTest();
-            }
-        }
-
-        // Показать предыдущий вопрос
+        // Переход к предыдущему вопросу
         function showPreviousQuestion() {
-            currentQuestionIndex--;
-            displayQuestion();
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                displayQuestion();
+            }
         }
 
-        // Завершить тест
+        // Переход к следующему вопросу
+        function showNextQuestion() {
+            if (currentQuestionIndex < shuffledQuestions.length - 1) {
+                currentQuestionIndex++;
+                displayQuestion();
+            }
+        }
+
+        // Завершение теста
         function finishTest() {
             const container = document.getElementById('quiz-container');
             container.innerHTML = `
-                <div class="result-box text-center">
-                    <h3>Тест завершен!</h3>
-                    <p>Вы ответили правильно на <strong>${score}</strong> из <strong>${answeredQuestions}</strong> вопросов.</p>
+                <div class="result-box">
+                    <h4>Вы завершили тест!</h4>
+                    <p class="result">Ваш результат: ${score} из ${shuffledQuestions.length}</p>
                 </div>`;
-            document.getElementById('next-button').classList.add('d-none');
-            document.getElementById('prev-button').classList.add('d-none');
-            document.getElementById('finish-button').classList.add('d-none');
+            document.getElementById('prev-button').disabled = true;
+            document.getElementById('next-button').disabled = true;
         }
 
-        // Запуск теста
-        window.onload = startQuiz;
+        startQuiz(); // Запуск теста
+
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
